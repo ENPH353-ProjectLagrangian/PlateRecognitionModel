@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import cv2
-from plate_isolator_orb import PlateIsolatorOrb as PlateIsolator
+from plate_isolator_sift import PlateIsolatorSIFT as PlateIsolator
 
 
 def scale_image(img):
@@ -17,33 +17,31 @@ def scale_image(img):
     return img
 
 
-def test_image(img_path, isolator, duration=10000):
+def test_image(img_path, isolator, duration=2000):
     detect_image = cv2.imread(img_path)
     # detect_image = scale_image(detect_image)
-    matches = isolator.detectFeature(detect_image, detect_image,
-                                     duration=duration)
-    print(matches)
-    pass
+    cropped_img = isolator.detectFeature(detect_image, detect_image,
+                                         duration=duration, testing=True)
+    if (cropped_img is not None):
+        cv2.imshow("cropped img", cropped_img)
+        cv2.waitKey(duration)
+    else:
+        print("no plate found in this image")
 
 
 def main():
-    feature_img = cv2.imread('dev_images/blue_crop_parking_only.jpg')
+    feature_img = cv2.imread('plate_template.jpg')
     isolator = PlateIsolator(feature_img)
     isolator.show_ref_and_keypoints()
 
-    test_image('dev_images/test0_nobg.jpg', isolator)
-    test_image('dev_images/test1_nobg.jpg', isolator)
-    test_image('dev_images/test2_nobg.jpg', isolator)
-    test_image('dev_images/test3_nobg.jpg', isolator)
-    # test_image('dev_images/blue_nocrop.jpg', isolator)
-    # test_image('dev_images/green_nocrop.jpg', isolator)
-    # test_image('dev_images/green_nocrop2.jpg', isolator)
-    # test_image('dev_images/yellow_nocrop.jpg', isolator)
-    # test_image('dev_images/blue_crop.jpg', isolator)
-    # test_image('dev_images/blue_crop_noletters.jpg', isolator)
-    # test_image('dev_images/green_crop.jpg', isolator)
-    # test_image('dev_images/yellow_crop.jpg', isolator)
-
+    test_image('dev_images/test0.png', isolator)
+    test_image('dev_images/test1.png', isolator)
+    test_image('dev_images/test2.png', isolator)
+    test_image('dev_images/test3.png', isolator)
+    test_image('dev_images/test_skew0.png', isolator)
+    test_image('dev_images/test_skew1.png', isolator)
+    test_image('dev_images/test_small0.png', isolator)
+    test_image('dev_images/test_small1.png', isolator)
 
     print("end of main")
 

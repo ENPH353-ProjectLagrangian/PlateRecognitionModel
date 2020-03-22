@@ -40,15 +40,8 @@ class PlateIsolatorOrb:
         """
         cv2.imshow("Features image", self.feature_img)
         cv2.waitKey(duration_ms)
-    
+
     def show_ref_and_keypoints(self, duration_ms=5000):
-        """
-        For debugging purposes: figure out what these keypoints look like!
-        """
-        # img = cv2.drawKeypoints(self.feature_img, self.keypoints,
-        #                         color=(0, 255, 0), flags=0)
-        # cv2.imshow("Features image with keypoints", img)
-        # cv2.waitKey(duration_ms)
         pass
 
     def rescale_img(self, img):

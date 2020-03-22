@@ -2,6 +2,10 @@
 
 import cv2
 import numpy as np
+import random as rand
+from scipy.spatial import distance as dist
+
+rand.seed()
 
 
 class PlateIsolatorSIFT:
@@ -17,6 +21,9 @@ class PlateIsolatorSIFT:
     https://docs.google.com/document/d/1trqdpvf9x_Ft62-yL35qbelQnErPKc49posviM9nw4U/edit
 
     https://pysource.com/2018/03/21/feature-detection-sift-surf-obr-opencv-3-4-with-python-3-tutorial-25/
+
+    For perspective transform:
+    https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
     """
 
     def __init__(self, feature_img):
@@ -26,7 +33,7 @@ class PlateIsolatorSIFT:
         self.MAX_IMG_WIDTH = 200
 
         self.feature_img = self.rescale_img(feature_img)
-        self.feature_img = self.preprocess_img(self.feature_img, 5, undistort=False)
+        self.feature_img = self.preprocess_img(self.feature_img, 5)
 
         self.sift = cv2.xfeatures2d.SIFT_create()  # makes SIFT object
 
@@ -69,25 +76,21 @@ class PlateIsolatorSIFT:
             return cv2.resize(img, dim)
         return img
 
-    def preprocess_img(self, img, kernel_size=5, undistort=True):
+    def preprocess_img(self, img, kernel_size=5):
         # img = self.rescale_img(img)
         kernel = (kernel_size, kernel_size)
         img = cv2.GaussianBlur(img, kernel, 0)
-        if (undistort):
-            img = self.undistort(img)
 
         return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    def detectFeature(self, ref_img, greyframe, duration=1000):
+    def detectFeature(self, ref_img, greyframe, duration=1000, testing=False):
         """
         Method: courtesy of homeography lab
         """
-        # greyframe = self.binarise_img(greyframe)
-        # cv2.imshow("binarised", greyframe)
-        greyframe = self.preprocess_img(greyframe, 3,
-                                        undistort=False)
-        cv2.imshow("processed", greyframe)
-        cv2.waitKey(duration)
+        greyframe = self.preprocess_img(greyframe, 3)
+        if (testing):
+            cv2.imshow("processed", greyframe)
+            cv2.waitKey(duration)
 
         kp_grayframe, desc_grayframe = self.sift.detectAndCompute(greyframe,
                                                                   None)
@@ -105,48 +108,93 @@ class PlateIsolatorSIFT:
                                 good_points]).reshape(-1, 1, 2)
 
         if len(query_pts) == 0 or len(train_pts) == 0:
-            print("no query or training points")
+            if (testing):
+                print("no query or training points")
+                cv2.waitKey(duration)
             return None
 
         matrix, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC,
                                           5.0)
 
-        print(query_pts)
-        print(train_pts)
-
         if matrix is None:
-            print("no homeography matrix")
+            if (testing):
+                print("no homeography matrix")
+                cv2.waitKey(duration)
             return None
-
-        # matches_mask = mask.ravel().tolist()
 
         # perspective transform
         h, w = self.feature_img.shape
         pts = np.float32([[0, 0], [0, h], [w, h], [w, 0]]).reshape(-1, 1, 2)
-        # print("pts: {}".format(pts))
-        # print("matrix: {}".format(matrix))
         dst = cv2.perspectiveTransform(pts, matrix)
 
-        # display result to screen
-        homography = cv2.polylines(ref_img, [np.int32(dst)], True,
+        # display result to screen if testing
+        if (testing):
+            homography = cv2.polylines(ref_img, [np.int32(dst)], True,
                                    (255, 0, 0), 3)
-        cv2.imshow("Homography", homography)
-        cv2.waitKey(duration)
+            cv2.imshow("Homography", homography)
+            cv2.waitKey(duration)
 
-        return np.int32(dst)
+        return self.cropped_image(greyframe, np.int32(dst)[:, 0, :])
 
-    def undistort(self, img):
-        mtx = np.load("mtx.npy")
-        dist = np.load("dist.npy")
+    def cropped_image(self, img, corners):
+        ordered_corners = self.order_corners(corners)
+        return self.four_point_transform(img, ordered_corners)
 
-        h, w = img.shape[:2]
-        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
-            mtx, dist, (w, h), 1, (w, h))
+    def four_point_transform(self, img, ordered_corners):
+        # obtain a consistent order of the points and unpack them
+        # individually
+        (tl, tr, br, bl) = ordered_corners
+        # compute the width of the new image, which will be the
+        # maximum distance between bottom-right and bottom-left
+        # x-coordiates or the top-right and top-left x-coordinates
+        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        maxWidth = max(int(widthA), int(widthB))
+        # compute the height of the new image, which will be the
+        # maximum distance between the top-right and bottom-right
+        # y-coordinates or the top-left and bottom-left y-coordinates
+        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        maxHeight = max(int(heightA), int(heightB))
+        # now that we have the dimensions of the new image, construct
+        # the set of destination points to obtain a "birds eye view",
+        # (i.e. top-down view) of the image, again specifying points
+        # in the top-left, top-right, bottom-right, and bottom-left
+        # order
+        dst = np.array([
+            [0, 0],
+            [maxWidth - 1, 0],
+            [maxWidth - 1, maxHeight - 1],
+            [0, maxHeight - 1]], dtype="float32")
+        # compute the perspective transform matrix and then apply it
+        M = cv2.getPerspectiveTransform(ordered_corners, dst)
+        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+        # return the warped image
+        return warped
 
-        # undistort
-        dst = cv2.undistort(img, mtx, dist, None, newcameramtx)
+    def order_corners(self, corners):
+        """
+        Helper function to generate our 4 points for perspective transform
+        Important: points are generated in a consistent order! I'll do:
+        1. top-left
+        2. top-right
+        3. bottom-right
+        4. bottom-left
 
-        # crop the image
-        x, y, w, h = roi
-        dst = dst[y:y+h, x:x+w]
-        return dst
+        From this blog post:
+        https://www.pyimagesearch.com/2016/03/21/ordering-coordinates-clockwise-with-python-and-opencv/
+        """
+
+        # sort points by X
+        xSorted = corners[np.argsort(corners[:, 0]), :]
+
+        leftMost = xSorted[:2, :]
+        rightMost = xSorted[2:, :]
+
+        #grab top left and bottom left
+        leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+        (tl, bl) = leftMost
+        D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
+        (br, tr) = rightMost[np.argsort(D)[::-1], :]
+
+        return np.array([tl, tr, br, bl], dtype="float32")
