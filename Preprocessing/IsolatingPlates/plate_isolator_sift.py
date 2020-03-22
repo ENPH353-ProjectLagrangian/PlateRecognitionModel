@@ -40,7 +40,7 @@ class PlateIsolatorSIFT:
         # finds keypoints and gets descriptors in one method!
         self.key_points, self.descriptor = \
             self.sift.detectAndCompute(self.feature_img, None)
-        
+
         # feature matching
         self.index_params = dict(algorithm=0, trees=5)
         self.search_params = dict()
@@ -55,14 +55,15 @@ class PlateIsolatorSIFT:
         """
         cv2.imshow("Features image", self.feature_img)
         cv2.waitKey(duration_ms)
-    
+
     def show_ref_and_keypoints(self, duration_ms=5000):
         """
         For debugging purposes: figure out what these keypoints look like!
         """
         img = cv2.drawKeypoints(self.feature_img, self.key_points,
                                 self.feature_img,
-                                flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                                flags=cv2.
+                                DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
         cv2.imshow("Features image with keypoints", img)
         cv2.waitKey(duration_ms)
@@ -130,7 +131,7 @@ class PlateIsolatorSIFT:
         # display result to screen if testing
         if (testing):
             homography = cv2.polylines(ref_img, [np.int32(dst)], True,
-                                   (255, 0, 0), 3)
+                                       (255, 0, 0), 3)
             cv2.imshow("Homography", homography)
             cv2.waitKey(duration)
 
@@ -191,7 +192,7 @@ class PlateIsolatorSIFT:
         leftMost = xSorted[:2, :]
         rightMost = xSorted[2:, :]
 
-        #grab top left and bottom left
+        # grab top left and bottom left
         leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
         (tl, bl) = leftMost
         D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]

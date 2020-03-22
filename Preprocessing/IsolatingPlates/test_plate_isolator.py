@@ -17,7 +17,7 @@ def scale_image(img):
     return img
 
 
-def test_image(img_path, isolator, duration=2000):
+def test_image(img_path, isolator, duration=5000):
     detect_image = cv2.imread(img_path)
     # detect_image = scale_image(detect_image)
     cropped_img = isolator.detectFeature(detect_image, detect_image,

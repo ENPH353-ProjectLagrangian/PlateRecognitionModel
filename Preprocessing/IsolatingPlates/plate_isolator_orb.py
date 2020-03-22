@@ -26,10 +26,14 @@ class PlateIsolatorOrb:
         self.MAX_IMG_WIDTH = 200
 
         self.feature_img = self.rescale_img(feature_img)
-        self.feature_img = self.preprocess_img(self.feature_img, 5, undistort=False)
+        self.feature_img = self.preprocess_img(self.feature_img, 5,
+                                               undistort=False)
 
         self.orb = cv2.ORB_create()
-        self.keypoints, self.descriptors = self.orb.detectAndCompute(self.feature_img, None)
+        self.keypoints, \
+            self.descriptors = self.orb.detectAndCompute(self.feature_img,
+                                                         None)
+
         self.brute_force = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
     def show_ref(self, duration_ms=5000):
@@ -66,7 +70,7 @@ class PlateIsolatorOrb:
         ref_img = self.preprocess_img(ref_img)
         kp, des = self.orb.detectAndCompute(greyframe, None)
         matches = self.brute_force.match(self.descriptors, des)
-        matches = sorted(matches, key=lambda x:x.distance)
+        matches = sorted(matches, key=lambda x: x.distance)
         matching_result = cv2.drawMatches(self.feature_img, self.keypoints,
                                           ref_img, kp, matches[:50],
                                           None, flags=2)
