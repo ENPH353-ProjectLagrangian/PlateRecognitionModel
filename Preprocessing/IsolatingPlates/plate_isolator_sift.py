@@ -2,10 +2,7 @@
 
 import cv2
 import numpy as np
-import random as rand
 from scipy.spatial import distance as dist
-
-rand.seed()
 
 
 class PlateIsolatorSIFT:
@@ -13,7 +10,7 @@ class PlateIsolatorSIFT:
     The goal of this module is to pick out parking and license plates
 
     Input: a clean image of the plates
-           Random, likely terrible images picked up from Anki camera
+           Random simulation images
 
     Resources:
     https://pysource.com/2018/06/05/object-tracking-using-homography-opencv-3-4-with-python-3-tutorial-34/

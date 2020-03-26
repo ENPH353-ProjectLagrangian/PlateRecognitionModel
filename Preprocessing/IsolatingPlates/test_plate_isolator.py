@@ -17,14 +17,14 @@ def scale_image(img):
     return img
 
 
-def test_image(img_path, isolator, duration=5000):
+def test_image(img_path, isolator, img_num, duration=5000):
     detect_image = cv2.imread(img_path)
     # detect_image = scale_image(detect_image)
     cropped_img = isolator.detectFeature(detect_image, detect_image,
-                                         duration=duration, testing=True)
+                                         duration=duration, testing=False)
     if (cropped_img is not None):
         cv2.imshow("cropped img", cropped_img)
-        cv2.waitKey(duration)
+        cv2.imwrite("paired_plates/plate_{}.png".format(img_num), cropped_img)
     else:
         print("no plate found in this image")
 
@@ -34,14 +34,14 @@ def main():
     isolator = PlateIsolator(feature_img)
     isolator.show_ref_and_keypoints()
 
-    test_image('dev_images/test0.png', isolator)
-    test_image('dev_images/test1.png', isolator)
-    test_image('dev_images/test2.png', isolator)
-    test_image('dev_images/test3.png', isolator)
-    test_image('dev_images/test_skew0.png', isolator)
-    test_image('dev_images/test_skew1.png', isolator)
-    test_image('dev_images/test_small0.png', isolator)
-    test_image('dev_images/test_small1.png', isolator)
+    test_image('dev_images/test0.png', isolator, 0)
+    test_image('dev_images/test1.png', isolator, 1)
+    test_image('dev_images/test2.png', isolator, 2)
+    test_image('dev_images/test3.png', isolator, 3)
+    test_image('dev_images/test_skew0.png', isolator, 4)
+    test_image('dev_images/test_skew1.png', isolator, 5)
+    # test_image('dev_images/test_small0.png', isolator)
+    # test_image('dev_images/test_small1.png', isolator)
 
     print("end of main")
 
