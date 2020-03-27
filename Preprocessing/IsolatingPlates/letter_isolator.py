@@ -43,8 +43,10 @@ class LetterIsolator:
         bin_text = self.binarise_text(img)
         self.display_test(bin_plate)
         out_parking, out_license = self.get_plates(bin_text, bin_plate)
-        self.display_test(out_parking)
-        self.display_test(out_license)
+        license_plate = self.clean_license_img(out_license)
+        parking_plate = self.clean_parking_img(out_parking)
+        self.display_test(parking_plate)
+        self.display_test(license_plate)
 
 
 # -------------------- Helpers -----------------------------
@@ -63,11 +65,9 @@ class LetterIsolator:
         """
         _, contours, _ = cv2.findContours(bin_plates, cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
-                                          
-        print(contours)
+
         contour_parking = contours[0] \
             if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[1]
-        
         contour_license = contours[1] \
             if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[0]
 
@@ -95,6 +95,21 @@ class LetterIsolator:
         out_license = out_license[topy_l:bottomy_l + 1, topx_l:bottomx_l + 1]
 
         return out_parking, out_license
+
+    def clean_license_img(self, img):
+        delta = img.shape[1] // 55
+        img[0:delta, :] = 255
+        img[img.shape[0] - delta:img.shape[0], :] = 255
+        img[:, 0:delta] = 255
+        img[:, img.shape[1] - delta:img.shape[1]] = 255
+        return img
+
+    def clean_parking_img(self, img):
+        delta = img.shape[1] // 15
+        img[img.shape[0] - 2 * delta:img.shape[0], :] = 255
+        img[:, 0:delta] = 255
+        img[:, img.shape[1] - delta:img.shape[1]] = 255
+        return img
 
     def binarise_plate(self, img):
         """
