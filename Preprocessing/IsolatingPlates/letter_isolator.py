@@ -2,8 +2,6 @@
 
 import cv2
 import numpy as np
-import imutils
-
 
 class LetterIsolator:
     """
@@ -15,7 +13,7 @@ class LetterIsolator:
     https://www.pyimagesearch.com/2015/08/10/checking-your-opencv-version-using-python/
     """
 
-    def __init__(self, bin_thresh_plate=80, bin_thresh_text=40, img_width=200,
+    def __init__(self, bin_thresh_plate=65, img_width=150,
                  testing=False):
         """
         @param binarisation_threshold: threshold which distinguishes between
@@ -23,7 +21,6 @@ class LetterIsolator:
         @param img_width: width that input image gets scaled to
         """
         self.bin_thresh_plate = bin_thresh_plate
-        self.bin_thresh_text = bin_thresh_text
         self.IMG_WIDTH = img_width
         self.is_testing = testing
 
@@ -66,10 +63,13 @@ class LetterIsolator:
         _, contours, _ = cv2.findContours(bin_plates, cv2.RETR_TREE,
                                           cv2.CHAIN_APPROX_SIMPLE)
 
-        contour_parking = contours[0] \
-            if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[1]
-        contour_license = contours[1] \
-            if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[0]
+        contour_parking, contour_license = self.get_contours(contours)
+        # print("gottem")
+
+        # contour_parking = contours[0] \
+        #     if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[1]
+        # contour_license = contours[1] \
+        #     if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[0]
 
         mask_parking = np.zeros_like(img)
         mask_license = np.zeros_like(img)
@@ -106,6 +106,7 @@ class LetterIsolator:
 
     def clean_parking_img(self, img):
         delta = img.shape[1] // 15
+        img[0:delta, :] = 255
         img[img.shape[0] - 2 * delta:img.shape[0], :] = 255
         img[:, 0:delta] = 255
         img[:, img.shape[1] - delta:img.shape[1]] = 255
@@ -117,17 +118,28 @@ class LetterIsolator:
         @param: input image
         @return: the binarised image (plate black, rest white)
         """
-        img = cv2.GaussianBlur(img, (5, 5), 0)
-
         img = cv2.threshold(img, self.bin_thresh_plate, 255,
                             cv2.THRESH_BINARY)[1]
-        kernel = np.ones((10, 10), np.uint8)
+        kernel = np.ones((21, 21), np.uint8)
+        return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
+    
+    def binarise_plate_adaptive(self, img):
+        """
+        Binarises the image to isolate plates, adaptively
+        @param: input image
+        @return: the binarised image (plate black, rest white)
+        """
+        img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                    cv2.THRESH_BINARY, 13, 2)
+        kernel = np.ones((1, 1), np.uint8)
         return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
 
     def binarise_text(self, img):
         img = cv2.GaussianBlur(img, (3, 3), 0)
-        return cv2.threshold(img, self.bin_thresh_plate, 255,
-                             cv2.THRESH_BINARY)[1]
+        img = cv2.threshold(img, self.bin_thresh_plate, 255,
+                            cv2.THRESH_BINARY)[1]
+        kernel = np.ones((1, 1), np.uint8)
+        return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
 
     def rescale_img(self, img):
         width = img.shape[1]
@@ -140,3 +152,33 @@ class LetterIsolator:
         if (self.is_testing):
             cv2.imshow("testing", img)
             cv2.waitKey(duration)
+
+    def get_contours(self, contours):
+        """
+        Returns the two largest contours,
+        insofar that they are large enough to be the plates
+        Returns parking first, then license
+        """
+        # guestimate area: w = image.width * 0.8, h = 2/3*w
+        # add factor of safety of 0.75
+        MIN_AREA = (int)(0.75 * self.IMG_WIDTH * 0.8 * (2 + 4 / 3))
+
+        good_contours = [c for c in contours
+                         if (self.get_contour_area(c) > MIN_AREA)]
+
+        assert len(good_contours) == 2
+
+        contour_parking = good_contours[0] \
+            if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
+            else good_contours[1]
+        contour_license = good_contours[1] \
+            if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
+            else good_contours[0]
+        
+        return contour_parking, contour_license
+
+    def get_contour_area(self, contour):
+        (x_ul, y_ul) = (np.min(contour[:, 0, 0]), np.min(contour[:, 0, 0]))
+        (x_lr, y_lr) = (np.max(contour[:, 0, 0]), np.max(contour[:, 0, 0]))
+        # print(str((x_lr - x_ul)*(y_lr - y_ul)))
+        return (x_lr - x_ul) * (y_lr - y_ul)

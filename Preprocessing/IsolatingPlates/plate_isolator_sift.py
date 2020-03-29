@@ -23,11 +23,12 @@ class PlateIsolatorSIFT:
     https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
     """
 
-    def __init__(self, feature_img):
+    def __init__(self, feature_img, min_image_width=80):
         """
         Sets up our sift recognition based off of our pattern
         """
         self.MAX_IMG_WIDTH = 200
+        self.min_image_width = 80
 
         self.feature_img = self.rescale_img(feature_img)
         self.feature_img = self.preprocess_img(self.feature_img, 5)
@@ -136,7 +137,10 @@ class PlateIsolatorSIFT:
 
     def cropped_image(self, img, corners):
         ordered_corners = self.order_corners(corners)
-        return self.four_point_transform(img, ordered_corners)
+        img = self.four_point_transform(img, ordered_corners)
+        if (img.shape[1] < self.min_image_width):
+            return None
+        return img
 
     def four_point_transform(self, img, ordered_corners):
         # obtain a consistent order of the points and unpack them

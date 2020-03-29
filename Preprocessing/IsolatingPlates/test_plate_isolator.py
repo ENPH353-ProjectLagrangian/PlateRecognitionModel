@@ -38,6 +38,10 @@ def main():
     test_image('dev_images/test1.png', isolator, 1)
     test_image('dev_images/test2.png', isolator, 2)
     test_image('dev_images/test3.png', isolator, 3)
+    test_image('dev_images/test4.png', isolator, 4)
+    test_image('dev_images/test5.png', isolator, 5)
+    test_image('dev_images/test6.png', isolator, 6)
+
     test_image('dev_images/test_skew0.png', isolator, 4)
     test_image('dev_images/test_skew1.png', isolator, 5)
     # test_image('dev_images/test_small0.png', isolator)
