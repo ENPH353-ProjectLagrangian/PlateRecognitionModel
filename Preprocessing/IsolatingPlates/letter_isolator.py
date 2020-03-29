@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 
+
 class LetterIsolator:
     """
     Given greyscale image of the side of a car (both plates
@@ -32,18 +33,28 @@ class LetterIsolator:
         @return the cutout and binarised images for:
                 P (for training purposes), parking spot number (parking plate)
                 Letter0, Letter1, Num0, Num1 (license plate)
+        @throws: assertion error if we don't find the right # of chars. Catch it, try again
         """
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = self.rescale_img(img)
-        self.display_test(img)
         bin_plate = self.binarise_plate(img)
         bin_text = self.binarise_text(img)
-        self.display_test(bin_plate)
         out_parking, out_license = self.get_plates(bin_text, bin_plate)
         license_plate = self.clean_license_img(out_license)
         parking_plate = self.clean_parking_img(out_parking)
         self.display_test(parking_plate)
+        p, spot_num = self.get_chars_from_plate(parking_plate,
+                                                expected_letters=2)
+        self.display_test(p)
+        self.display_test(spot_num)
         self.display_test(license_plate)
+        l0, l1, n0, n1 = self.get_chars_from_plate(license_plate,
+                                                   expected_letters=4)
+        self.display_test(l0)
+        self.display_test(l1)
+        self.display_test(n0)
+        self.display_test(n1)
+        return p, spot_num, l0, l1, n0, n1
 
 
 # -------------------- Helpers -----------------------------
@@ -64,12 +75,6 @@ class LetterIsolator:
                                           cv2.CHAIN_APPROX_SIMPLE)
 
         contour_parking, contour_license = self.get_contours(contours)
-        # print("gottem")
-
-        # contour_parking = contours[0] \
-        #     if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[1]
-        # contour_license = contours[1] \
-        #     if contours[0][0, 0, 1] < contours[1][0, 0, 1] else contours[0]
 
         mask_parking = np.zeros_like(img)
         mask_license = np.zeros_like(img)
@@ -97,20 +102,18 @@ class LetterIsolator:
         return out_parking, out_license
 
     def clean_license_img(self, img):
-        delta = img.shape[1] // 55
-        img[0:delta, :] = 255
-        img[img.shape[0] - delta:img.shape[0], :] = 255
-        img[:, 0:delta] = 255
-        img[:, img.shape[1] - delta:img.shape[1]] = 255
-        return img
+        delta_x = img.shape[1] // 30
+        delta_y = img.shape[0] // 30
+        img = cv2.bitwise_not(img[delta_y:img.shape[0] - int(1.5 * delta_y),
+                                  delta_x: img.shape[1] - delta_x])
+        return cv2.GaussianBlur(img, (5, 5), 0)
 
     def clean_parking_img(self, img):
-        delta = img.shape[1] // 15
-        img[0:delta, :] = 255
-        img[img.shape[0] - 2 * delta:img.shape[0], :] = 255
-        img[:, 0:delta] = 255
-        img[:, img.shape[1] - delta:img.shape[1]] = 255
-        return img
+        delta_x = img.shape[1] // 4
+        delta_y = img.shape[0] // 6
+        img = cv2.bitwise_not(img[delta_y:img.shape[0] - int(1.5 * delta_y),
+                                  delta_x: img.shape[1] - delta_x])
+        return cv2.GaussianBlur(img, (5, 5), 0)
 
     def binarise_plate(self, img):
         """
@@ -122,23 +125,12 @@ class LetterIsolator:
                             cv2.THRESH_BINARY)[1]
         kernel = np.ones((21, 21), np.uint8)
         return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
-    
-    def binarise_plate_adaptive(self, img):
-        """
-        Binarises the image to isolate plates, adaptively
-        @param: input image
-        @return: the binarised image (plate black, rest white)
-        """
-        img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                    cv2.THRESH_BINARY, 13, 2)
-        kernel = np.ones((1, 1), np.uint8)
-        return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
 
     def binarise_text(self, img):
         img = cv2.GaussianBlur(img, (3, 3), 0)
         img = cv2.threshold(img, self.bin_thresh_plate, 255,
                             cv2.THRESH_BINARY)[1]
-        kernel = np.ones((1, 1), np.uint8)
+        kernel = np.ones((2, 2), np.uint8)
         return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)
 
     def rescale_img(self, img):
@@ -178,7 +170,56 @@ class LetterIsolator:
         return contour_parking, contour_license
 
     def get_contour_area(self, contour):
+        """
+        Get approximate area of contour (pixels) based on
+        upper left corner and lower right corner
+
+        @param contour - np array of contour
+        @return area of contour
+        """
         (x_ul, y_ul) = (np.min(contour[:, 0, 0]), np.min(contour[:, 0, 0]))
         (x_lr, y_lr) = (np.max(contour[:, 0, 0]), np.max(contour[:, 0, 0]))
-        # print(str((x_lr - x_ul)*(y_lr - y_ul)))
         return (x_lr - x_ul) * (y_lr - y_ul)
+
+    def get_chars_from_plate(self, img, expected_letters=2, thresh=200):
+        """
+        Returns an ordered list of letters imgs on plate (left to right)
+        @param img - image from which letters are extracted
+        @param expected_letters - number of expected letters
+                                  (2 for parking, 4 for license plate)
+
+        https://docs.opencv.org/3.4/da/d0c/tutorial_bounding_rects_circles.html
+        """
+        canny_out = cv2.Canny(img, thresh, 255)
+        _, contours, _ = cv2.findContours(canny_out, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        contours_poly = [None]*len(contours)
+        boundRect = [None]*len(contours)
+        letter_rect = []
+
+        for i, c in enumerate(contours):
+            contours_poly[i] = cv2.approxPolyDP(c, 3, True)
+            boundRect[i] = cv2.boundingRect(contours_poly[i])
+            if (self.IMG_WIDTH // 10 <= boundRect[i][2] <= self.IMG_WIDTH // 5
+                    and self.IMG_WIDTH // 5 <= boundRect[i][3] <= self.IMG_WIDTH // 3):
+                letter_rect.append(boundRect[i])
+
+        list.sort(letter_rect, key=lambda rect: rect[0])
+
+        i = 1
+        while i in range(1, len(letter_rect)):
+            if (abs(letter_rect[i][0] - letter_rect[i - 1][0])
+                    <= self.IMG_WIDTH // 50):
+                del letter_rect[i]
+            else:
+                i += 1
+
+        assert len(letter_rect) == expected_letters, \
+            "letter_rect length: {}, {}".format(len(letter_rect), letter_rect)
+
+        letters = [None] * len(letter_rect)
+        for i, rect in enumerate(letter_rect):
+            print(rect)
+            letters[i] = img[max(0, rect[1] - 2):min(img.shape[0] - 1, rect[1] + rect[3] + 2),
+                             max(0, rect[0] - 2):min(img.shape[1] - 1, rect[0] + rect[2] + 2)]
+        return letters
