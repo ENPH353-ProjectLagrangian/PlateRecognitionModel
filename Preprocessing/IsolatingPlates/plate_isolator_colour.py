@@ -95,21 +95,51 @@ class PlateIsolatorColour:
         @param mask - the mask of the car
         @param colour - the colour of the car (that will also be part of
                         contour and thus should be filtered)
+        
+        Reference: https://stackoverflow.com/questions/44127342/detect-card-minarea-quadrilateral-from-contour-opencv
         """
-        print(img.shape)
-        print(mask.shape)
-        img = cv2.bitwise_and(img, img, mask=mask)
-
+        # 1. Get mask of ONLY the plates
         (lower, upper) = self.colour_bounds[colour]
         # create numpy arrays from colour boundaries
         lower = np.array(lower, dtype="uint8")
         upper = np.array(upper, dtype="uint8")
         colour_mask = cv2.inRange(img, lower, upper)
         colour_mask = cv2.bitwise_not(colour_mask)
-        img = cv2.bitwise_and(img, img, mask=colour_mask)
+        plate_mask = cv2.bitwise_and(colour_mask, colour_mask, mask=mask)
 
-        if self.testing:            
-            cv2.imshow("masked image", img)
+        # 2. Use mask to get contours
+        plate_mask = cv2.GaussianBlur(plate_mask, (5, 5), 1)  # regularise
+        _, contours, _ = cv2.findContours(plate_mask, cv2.RETR_TREE,
+                                          cv2.CHAIN_APPROX_SIMPLE)
+
+        # 3. Discard contours with too small area
+        MIN_AREA = int(0.75 * plate_mask.shape[0] / 10
+                       * plate_mask.shape[1] / 10)  # experimentally determined
+        good_contours = [c for c in contours if cv2.contourArea(c) > MIN_AREA]
+        if (len(good_contours) != 2):
+            return None, None
+
+        # 4. pick out parking and license plates
+        parking_contour = good_contours[0] \
+            if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
+            else good_contours[1]
+        license_contour = good_contours[1] \
+            if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
+            else good_contours[0]
+
+        # 4. find the convex hulls and make mask for it
+        parking_hull = cv2.convexHull(parking_contour)
+        license_hull = cv2.convexHull(license_contour)
+        parking_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+        cv2.drawContours(parking_mask, [parking_hull], -1, (255))
+        license_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+        cv2.drawContours(license_mask, [license_hull], -1, (255))
+
+        if self.testing:
+            cv2.imshow("parking_mask", parking_mask)
+            cv2.imshow("license_mask", license_mask)
+            # cv2.imshow("img", img)
+            # cv2.imshow("plate mask", plate_mask)
             cv2.waitKey(2000)
 
         return 1, 2
@@ -136,8 +166,5 @@ class PlateIsolatorColour:
         list.sort(good_contours, key=_contour_area_tuple)
         if (len(good_contours) == 0):
             return None, None
-
-        if self.testing:
-            print(good_contours[0])
 
         return good_contours[0][1], good_contours[0][0]
