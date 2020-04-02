@@ -49,6 +49,7 @@ class PlateIsolatorColour:
                 cv2.imshow("image", img)
                 cv2.waitKey(duration)
             return None, None
+        
         parking_corners, license_corners = self.get_plate_corners(hsb, car_mask, car_colour)
         if (parking_corners is None or license_corners is None):
             if self.testing:
@@ -64,7 +65,7 @@ class PlateIsolatorColour:
             cv2.imshow("parking", parking)
             cv2.imshow("license", license)
             cv2.waitKey(duration)
-            print("success")
+            # print("success")
         
         return parking, license
 

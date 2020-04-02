@@ -5,12 +5,12 @@ from plate_isolator_colour import PlateIsolatorColour as PlateIsolator
 from letter_isolator_beta import LetterIsolatorBeta as LetterIsolator
 
 
-input_path = 'plate_images'
+input_path = 'plate_images2'
 output_path = 'letters_unlabelled'
 plate_isolation_failure = 'plates_unfound'
 letter_isolation_failure = 'letter_isolation_failures'
-counter = 500
-input_set_size = 48
+counter = 1000
+input_set_size = 73
 
 plate_isolator = PlateIsolator(testing=False)
 letter_isolator = LetterIsolator(testing=False)
@@ -35,7 +35,7 @@ for i in range(0, input_set_size):
             counter += 1
             cv2.imwrite("{}/l_{}.png".format(output_path, counter), l1)
             counter += 1
-            print("success")
+            print("success {}".format(str(i)))
         except AssertionError as e:
             print(e)
             print("could not recover letters from image {}".format(str(i)))

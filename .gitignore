@@ -1,3 +1,10 @@
 **/dev_images/images\\image*
 **/dev_images/without_full_plate/
 **/__pycache__/
+**/paired_plates/
+**/plate_images/
+**/plate_images2/
+**/letter_isolation_failures/
+**/plates_unfound/
+**/*.pyc
+**/TrainingData/
