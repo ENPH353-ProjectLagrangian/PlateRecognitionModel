@@ -24,7 +24,7 @@ def test_image(img_path, isolator):
 
 def main():
     isolator = PlateIsolatorColour(testing=True)
-    for i in range(16, 48):
+    for i in range(0, 48):
         test_image('plate_images/image{}.png'.format(str(i)), isolator)
 
     # test_image('plate_images/image4.png', isolator)
