@@ -35,7 +35,7 @@ class LetterIsolator:
                 Letter0, Letter1, Num0, Num1 (license plate)
         @throws: assertion error if we don't find the right # of chars. Catch it, try again
         """
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img = self.rescale_img(img)
         bin_plate = self.binarise_plate(img)
         bin_text = self.binarise_text(img)
@@ -166,7 +166,7 @@ class LetterIsolator:
         contour_license = good_contours[1] \
             if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
             else good_contours[0]
-        
+
         return contour_parking, contour_license
 
     def get_contour_area(self, contour):
@@ -176,6 +176,9 @@ class LetterIsolator:
 
         @param contour - np array of contour
         @return area of contour
+        """
+        """
+        Note to self: there exists a method for this kid
         """
         (x_ul, y_ul) = (np.min(contour[:, 0, 0]), np.min(contour[:, 0, 0]))
         (x_lr, y_lr) = (np.max(contour[:, 0, 0]), np.max(contour[:, 0, 0]))
@@ -219,7 +222,7 @@ class LetterIsolator:
 
         letters = [None] * len(letter_rect)
         for i, rect in enumerate(letter_rect):
-            print(rect)
+            # print(rect)
             letters[i] = img[max(0, rect[1] - 2):min(img.shape[0] - 1, rect[1] + rect[3] + 2),
                              max(0, rect[0] - 2):min(img.shape[1] - 1, rect[0] + rect[2] + 2)]
         return letters

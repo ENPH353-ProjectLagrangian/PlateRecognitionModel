@@ -16,20 +16,22 @@ def scale_image(img):
     return img
 
 
-def test_image(img_path, isolator, duration=2000):
+def test_image(img_path, isolator):
     detect_image = cv2.imread(img_path)
     detect_image = scale_image(detect_image)
-    isolator.detectCar(detect_image,
-                       duration=duration)
+    isolator.extract_plates(detect_image)
 
 
 def main():
-    isolator = PlateIsolatorColour()
+    isolator = PlateIsolatorColour(testing=True)
+    for i in range(16, 48):
+        test_image('plate_images/image{}.png'.format(str(i)), isolator)
 
-    test_image('dev_images/test0_nobg.jpg', isolator)
-    test_image('dev_images/test1_nobg.jpg', isolator)
-    test_image('dev_images/test2_nobg.jpg', isolator)
-    test_image('dev_images/test3_nobg.jpg', isolator)
+    # test_image('plate_images/image4.png', isolator)
+    # test_image('dev_images/test0_nobg.jpg', isolator)
+    # test_image('dev_images/test1_nobg.jpg', isolator)
+    # test_image('dev_images/test2_nobg.jpg', isolator)
+    # test_image('dev_images/test3_nobg.jpg', isolator)
     # test_image('dev_images/blue_nocrop.jpg', isolator)
     # test_image('dev_images/green_nocrop.jpg', isolator)
     # test_image('dev_images/green_nocrop2.jpg', isolator)

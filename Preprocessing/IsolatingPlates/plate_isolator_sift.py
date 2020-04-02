@@ -23,7 +23,7 @@ class PlateIsolatorSIFT:
     https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
     """
 
-    def __init__(self, feature_img, min_image_width=80):
+    def __init__(self, feature_img, min_image_width=70):
         """
         Sets up our sift recognition based off of our pattern
         """
@@ -31,7 +31,7 @@ class PlateIsolatorSIFT:
         self.min_image_width = 80
 
         self.feature_img = self.rescale_img(feature_img)
-        self.feature_img = self.preprocess_img(self.feature_img, 5)
+        self.feature_img = self.preprocess_img(self.feature_img)
 
         self.sift = cv2.xfeatures2d.SIFT_create()  # makes SIFT object
 
@@ -86,7 +86,7 @@ class PlateIsolatorSIFT:
         """
         Method: courtesy of homeography lab
         """
-        greyframe = self.preprocess_img(greyframe, 3)
+        greyframe = self.preprocess_img(greyframe, kernel_size=5)
         if (testing):
             cv2.imshow("processed", greyframe)
             cv2.waitKey(duration)
