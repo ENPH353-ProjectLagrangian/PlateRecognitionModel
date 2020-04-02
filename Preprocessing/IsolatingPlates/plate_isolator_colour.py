@@ -24,7 +24,7 @@ class PlateIsolatorColour:
         if colour_bounds is None:
             self.colour_bounds = [
                 ([50, 0, 0], [80, 255, 255]),
-                ([100, 130, 100], [120, 255, 170]),
+                ([100, 130, 50], [120, 255, 170]),
                 ([30, 0, 0], [40, 255, 255])
             ]
         else:
@@ -36,22 +36,20 @@ class PlateIsolatorColour:
         """
         Returns plates in order: parking, license, or None if no plates found
         """
-        contour = self.get_car_contour(img)
-        if contour is None:
-            print("no contour")
+        car_mask, car_colour = self.get_car_mask(img)
+        if car_mask is None:
+            print("no plate_found")
             return None
-        cv2.drawContours(img, [contour], -1, 255, -1)
-        if self.testing:
-            cv2.imshow("contour", img)
-            cv2.waitKey(duration)
+        parking, license = self.get_plate_contours(img, car_mask, car_colour)
 
-    def get_car_contour(self, img, duration=1000):
+    def get_car_mask(self, img, duration=1000):
         bound_num = 0
 
         hsb = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         mask = [None, None, None]
 
+        # mask by each possible car colour
         for (lower, upper) in self.colour_bounds:
             # create numpy arrays from colour boundaries
             lower = np.array(lower, dtype="uint8")
@@ -67,23 +65,42 @@ class PlateIsolatorColour:
                     title = "yellow"
 
             mask[bound_num] = cv2.inRange(hsb, lower, upper)
-            kernel = np.ones((5, 5), np.uint8)
-            mask[bound_num] = cv2.morphologyEx(mask[bound_num],
-                                               cv2.MORPH_CLOSE, kernel)
-            mask[bound_num] = cv2.morphologyEx(mask[bound_num],
-                                               cv2.MORPH_OPEN, kernel)
-            if self.testing:
-                output = cv2.bitwise_and(img, img, mask=mask[bound_num])
-                cv2.imshow(title, np.hstack([img, output]))
-                cv2.waitKey(duration)
+
+            # if self.testing:
+            #     output = cv2.bitwise_and(img, img, mask=mask[bound_num])
+            #     cv2.imshow(title, np.hstack([img, output]))
+            #     cv2.waitKey(duration)
             
             bound_num += 1
+        # Get the mask that had the largest contour (largest car), and
+        # the contour of said car
+        used_mask, car_contour = self.car_contour(mask)
 
-        car_contour = self.car_contour(mask)
+        if car_contour is None:
+            return None
+        car_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+        cv2.drawContours(car_mask, [car_contour], -1, (255), -1)
+        if self.testing:
+            cv2.imshow("car mask", car_mask)
+        return car_mask, used_mask
 
-        if car_contour is not None:
-            return car_contour
-        return None
+    def get_plate_contours(self, img, mask, colour):
+        """
+        Returns contour of the plates (with perspective still)
+        Parking plate first, then license plate
+        @param img - img in which we search for plate
+        @param mask - the mask of the car
+        @param colour - the colour of the car (that will also be part of
+                        contour and thus should be filtered)
+        """
+        print(img.shape)
+        print(mask.shape)
+        img = cv2.bitwise_and(img, img, mask=mask)
+        if self.testing:
+            cv2.imshow("mask", mask)
+            cv2.imshow("masked image", img)
+            cv2.waitKey(2000)
+        return 1, 2
 
     def car_contour(self, mask):
         _, contours0, _ = cv2.findContours(mask[0], cv2.RETR_TREE,
@@ -103,4 +120,11 @@ class PlateIsolatorColour:
             return None
         if self.testing:
             print(good_contours[0])
-        return good_contours[0]
+
+        selected_mask = "green"
+        if (good_contours[0] in contours1):
+            selected_mask = "blue"
+        elif (good_contours[0] in contours2):
+            selected_mask = "yellow"
+
+        return selected_mask, good_contours[0]
