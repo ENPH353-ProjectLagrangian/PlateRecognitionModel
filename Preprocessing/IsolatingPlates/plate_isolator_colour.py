@@ -2,6 +2,7 @@
 
 import cv2
 import numpy as np
+from scipy.spatial import distance as dist
 
 
 def _contour_area_tuple(c):
@@ -43,9 +44,22 @@ class PlateIsolatorColour:
         hsb = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         car_mask, car_colour = self.get_car_mask(hsb)
         if car_mask is None:
-            print("no plate_found")
-            return None
-        parking, license = self.get_plate_contours(hsb, car_mask, car_colour)
+            print("no car found")
+            return None, None
+        parking_corners, license_corners = self.get_plate_corners(hsb, car_mask, car_colour)
+        if (parking_corners is None or license_corners is None):
+            print("no plate found")
+            return None, None
+        parking = self.cropped_image(img, parking_corners)
+        license = self.cropped_image(img, license_corners)
+        if self.testing:
+            cv2.imshow("image", img)
+            cv2.imshow("parking", parking)
+            cv2.imshow("license", license)
+            cv2.waitKey(duration)
+            print("success")
+        
+        return parking, license
 
     def get_car_mask(self, img, duration=1000):
         bound_num = 0
@@ -87,9 +101,9 @@ class PlateIsolatorColour:
             cv2.imshow("car mask", car_mask)
         return car_mask, used_mask
 
-    def get_plate_contours(self, img, mask, colour):
+    def get_plate_corners(self, img, mask, colour):
         """
-        Returns contour of the plates (with perspective still)
+        Returns 4 corners of the plates (with perspective still) as an np array
         Parking plate first, then license plate
         @param img - img in which we search for plate
         @param mask - the mask of the car
@@ -127,22 +141,29 @@ class PlateIsolatorColour:
             if good_contours[0][0, 0, 1] < good_contours[1][0, 0, 1] \
             else good_contours[0]
 
-        # 4. find the convex hulls and make mask for it
-        parking_hull = cv2.convexHull(parking_contour)
-        license_hull = cv2.convexHull(license_contour)
-        parking_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-        cv2.drawContours(parking_mask, [parking_hull], -1, (255))
-        license_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-        cv2.drawContours(license_mask, [license_hull], -1, (255))
+        # 4. Make a quadrilateral around the plate
+        precision = cv2.arcLength(parking_contour, True) // 8
+        parking_poly = cv2.approxPolyDP(parking_contour, precision, True)
+        license_poly = cv2.approxPolyDP(license_contour, precision, True)
 
-        if self.testing:
-            cv2.imshow("parking_mask", parking_mask)
-            cv2.imshow("license_mask", license_mask)
-            # cv2.imshow("img", img)
-            # cv2.imshow("plate mask", plate_mask)
-            cv2.waitKey(2000)
+        # only works with quadrilaterals! Otherwise error happened
+        if (len(parking_poly) != 4 or len(license_poly) != 4):
+            print("length not 4!")
+            return None, None
 
-        return 1, 2
+        # if self.testing:
+            # parking_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+            # cv2.drawContours(parking_mask, [parking_poly], -1, (255))
+            # license_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+            # cv2.drawContours(license_mask, [license_poly], -1, (255))
+
+            # cv2.imshow("parking_mask", parking_mask)
+            # cv2.imshow("license_mask", license_mask)
+            # # cv2.imshow("img", img)
+            # # cv2.imshow("plate mask", plate_mask)
+            # cv2.waitKey(2000)
+
+        return parking_poly[:, 0, :], license_poly[:, 0, :]
 
     def car_contour(self, mask):
         _, contours0, _ = cv2.findContours(mask[0], cv2.RETR_TREE,
@@ -168,3 +189,66 @@ class PlateIsolatorColour:
             return None, None
 
         return good_contours[0][1], good_contours[0][0]
+
+    def cropped_image(self, img, corners):
+        ordered_corners = self.order_corners(corners)
+        return self.four_point_transform(img, ordered_corners)
+
+    def four_point_transform(self, img, ordered_corners):
+        # obtain a consistent order of the points and unpack them
+        # individually
+        (tl, tr, br, bl) = ordered_corners
+        # compute the width of the new image, which will be the
+        # maximum distance between bottom-right and bottom-left
+        # x-coordiates or the top-right and top-left x-coordinates
+        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        maxWidth = max(int(widthA), int(widthB))
+        # compute the height of the new image, which will be the
+        # maximum distance between the top-right and bottom-right
+        # y-coordinates or the top-left and bottom-left y-coordinates
+        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        maxHeight = max(int(heightA), int(heightB))
+        # now that we have the dimensions of the new image, construct
+        # the set of destination points to obtain a "birds eye view",
+        # (i.e. top-down view) of the image, again specifying points
+        # in the top-left, top-right, bottom-right, and bottom-left
+        # order
+        dst = np.array([
+            [0, 0],
+            [maxWidth - 1, 0],
+            [maxWidth - 1, maxHeight - 1],
+            [0, maxHeight - 1]], dtype="float32")
+        # compute the perspective transform matrix and then apply it
+        M = cv2.getPerspectiveTransform(ordered_corners, dst)
+        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+        # return the warped image
+        return warped
+
+    def order_corners(self, corners):
+        """
+        Helper function to generate our 4 points for perspective transform
+        Important: points are generated in a consistent order! I'll do:
+        1. top-left
+        2. top-right
+        3. bottom-right
+        4. bottom-left
+
+        From this blog post:
+        https://www.pyimagesearch.com/2016/03/21/ordering-coordinates-clockwise-with-python-and-opencv/
+        """
+
+        # sort points by X
+        xSorted = corners[np.argsort(corners[:, 0]), :]
+
+        leftMost = xSorted[:2, :]
+        rightMost = xSorted[2:, :]
+
+        # grab top left and bottom left
+        leftMost = leftMost[np.argsort(leftMost[:, 1]), :]
+        (tl, bl) = leftMost
+        D = dist.cdist(tl[np.newaxis], rightMost, "euclidean")[0]
+        (br, tr) = rightMost[np.argsort(D)[::-1], :]
+
+        return np.array([tl, tr, br, bl], dtype="float32")
