@@ -5,8 +5,8 @@ import numpy as np
 from scipy.spatial import distance as dist
 
 
-def _contour_area_tuple(c):
-    return cv2.contourArea(c[0])
+def _contour_length_tuple(c):
+    return cv2.arcLength(c[0], True)
 
 
 class PlateIsolatorColour:
@@ -37,7 +37,7 @@ class PlateIsolatorColour:
 
         self.testing = testing
 
-    def extract_plates(self, img, duration=3000):
+    def extract_plates(self, img, duration=1000):
         """
         Returns plates in order: parking, license, or None if no plates found
         """
@@ -45,10 +45,17 @@ class PlateIsolatorColour:
         car_mask, car_colour = self.get_car_mask(hsb)
         if car_mask is None:
             print("no car found")
+            if self.testing:
+                cv2.imshow("image", img)
+                cv2.waitKey(duration)
             return None, None
         parking_corners, license_corners = self.get_plate_corners(hsb, car_mask, car_colour)
         if (parking_corners is None or license_corners is None):
-            print("no plate found")
+            if self.testing:
+                cv2.imshow("image", img)
+                cv2.imshow("mask", car_mask)
+                cv2.waitKey(duration)
+            print("no was plate found")
             return None, None
         parking = self.cropped_image(img, parking_corners)
         license = self.cropped_image(img, license_corners)
@@ -94,11 +101,12 @@ class PlateIsolatorColour:
         used_mask, car_contour = self.car_contour(mask)
 
         if car_contour is None:
-            return None
+            return None, None
         car_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
         cv2.drawContours(car_mask, [car_contour], -1, (255), -1)
-        if self.testing:
-            cv2.imshow("car mask", car_mask)
+        # if self.testing:
+        #     cv2.imshow("image", img)
+        #     cv2.imshow("car mask", car_mask)
         return car_mask, used_mask
 
     def get_plate_corners(self, img, mask, colour):
@@ -176,25 +184,33 @@ class PlateIsolatorColour:
         guestimate area: experimentally determined
         """
         MIN_AREA = (int)(0.75 * mask[0].shape[1] / 6 * mask[0].shape[0] / 4)
-        
+
         cont_0 = [(c, 0) for c in contours0 if cv2.contourArea(c) > MIN_AREA]
         cont_1 = [(c, 1) for c in contours1 if cv2.contourArea(c) > MIN_AREA]
         cont_2 = [(c, 2) for c in contours2 if cv2.contourArea(c) > MIN_AREA]
 
         good_contours = [c for c in (cont_0 + cont_1 + cont_2)
-                         if cv2.contourArea(c[0]) > MIN_AREA]
+                         if (cv2.contourArea(c[0]) > MIN_AREA)]
 
-        list.sort(good_contours, key=_contour_area_tuple)
+        list.sort(good_contours, key=_contour_length_tuple)
         if (len(good_contours) == 0):
             return None, None
 
-        return good_contours[0][1], good_contours[0][0]
+        car_contour = good_contours[0][0]
+        car_colour = good_contours[0][1]
+
+        if (len(good_contours) > 1 and self._contour_on_edge(car_contour,
+                                                             mask[0])):
+            car_contour = good_contours[1][0]
+            car_colour = good_contours[1][1]
+
+        return car_colour, car_contour
 
     def cropped_image(self, img, corners):
-        ordered_corners = self.order_corners(corners)
-        return self.four_point_transform(img, ordered_corners)
+        ordered_corners = self._order_corners(corners)
+        return self._four_point_transform(img, ordered_corners)
 
-    def four_point_transform(self, img, ordered_corners):
+    def _four_point_transform(self, img, ordered_corners):
         # obtain a consistent order of the points and unpack them
         # individually
         (tl, tr, br, bl) = ordered_corners
@@ -226,7 +242,7 @@ class PlateIsolatorColour:
         # return the warped image
         return warped
 
-    def order_corners(self, corners):
+    def _order_corners(self, corners):
         """
         Helper function to generate our 4 points for perspective transform
         Important: points are generated in a consistent order! I'll do:
@@ -252,3 +268,8 @@ class PlateIsolatorColour:
         (br, tr) = rightMost[np.argsort(D)[::-1], :]
 
         return np.array([tl, tr, br, bl], dtype="float32")
+
+    def _contour_on_edge(self, c, mask):
+        # print(c[:, 0, 0])
+        return (np.min(c[:, 0, 0]) < 2) or \
+               (np.max(c[:, 0, 0]) > mask.shape[1] - 2)
