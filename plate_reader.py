@@ -89,16 +89,16 @@ class PlateReader():
                     prob_letter_right < self.certainty_thresh or
                     prob_tens_digit < self.certainty_thresh or
                         prob_ones_digit < self.certainty_thresh):
-                    return None
+                    return None, None, None
 
                 return parking_num, license_text, certainty
             except AssertionError as e:
                 print(e)
                 print("letters could not be extracted from image")
-                return None
+                return None, None, None
         else:
             print("No plates found in image")
-            return None
+            return None, None, None
 
     def _get_num_and_prob(self, img):
         img = self._preprocess_image(img)
@@ -107,11 +107,8 @@ class PlateReader():
         return num, prediction[0, num]
 
     def _get_char_and_prob(self, img):
-        cv2.imshow("img", img)
-        cv2.waitKey(2000)
         img = self._preprocess_image(img)
         prediction = self.char_model.predict(img)
-        print(prediction)
         index = np.argmax(prediction)
         return chr(index + 65), prediction[0, index]
 
@@ -156,13 +153,16 @@ class PlateReader():
 def test(path, plate_reader):
     img = cv2.imread(path)
     parking_spot, text, _ = plate_reader.process_image(img)
-    print("Parking: {}, {}".format(parking_spot, text))
+    if (parking_spot is not None):
+        print("Parking: {}, {}".format(parking_spot, text))
 
 
 def main():
-    path = 'Preprocessing/IsolatingPlates/plate_images2/'
+    path = 'Preprocessing/IsolatingPlates/plate_images/'
     plate_reader = PlateReader('num_model.h5', 'char_model.h5')
-    test(path + 'image0.png', plate_reader)
+    for i in range(48):
+        print("image {}".format(i))
+        test(path + 'image{}.png'.format(i), plate_reader)
 
 
 if __name__ == "__main__":
