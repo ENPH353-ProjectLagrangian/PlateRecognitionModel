@@ -5,11 +5,11 @@ from plate_isolator_colour import PlateIsolatorColour as PlateIsolator
 from letter_isolator_beta import LetterIsolatorBeta as LetterIsolator
 
 
-input_path = 'plate_images2'
-output_path = 'letters_unlabelled'
-plate_isolation_failure = 'plates_unfound'
-letter_isolation_failure = 'letter_isolation_failures'
-counter = 1000
+input_path = 'Preprocessing/IsolatingPlates/images_new_format'
+output_path = 'Preprocessing/IsolatingPlates/letters_unlabelled'
+plate_isolation_failure = 'Preprocessing/IsolatingPlates/plates_unfound'
+letter_isolation_failure = 'Preprocessing/IsolatingPlates/letter_isolation_failures'
+counter = 2000
 input_set_size = 73
 
 plate_isolator = PlateIsolator(testing=False)
@@ -21,11 +21,13 @@ for i in range(0, input_set_size):
 
     if (parking_plate is not None):
         try:
-            p, spot_num, l0, l1, n0, n1 = \
+            p, p_n0, p_n1, l0, l1, n0, n1 = \
                 letter_isolator.get_chars(parking_plate, license_plate)
             cv2.imwrite("{}/p_{}.png".format(output_path, counter), p)
             counter += 1
-            cv2.imwrite("{}/n_{}.png".format(output_path, counter), spot_num)
+            cv2.imwrite("{}/n_{}.png".format(output_path, counter), p_n0)
+            counter += 1
+            cv2.imwrite("{}/n_{}.png".format(output_path, counter), p_n1)
             counter += 1
             cv2.imwrite("{}/n_{}.png".format(output_path, counter), n0)
             counter += 1

@@ -202,7 +202,7 @@ def rand_noise(img):
 
 
 def rand_blur(img):
-    kernel = 2 * int(rand.gauss(4, 1.5)) + 1
+    kernel = 2 * int(rand.gauss(2, 1.5)) + 1
     if (kernel < 1):
         kernel = 1
 
@@ -265,13 +265,13 @@ def perspective_transform(img):
 
 
 def rand_morphology_dilate(img):
-    k_size = rand.randint(1, 4)
+    k_size = rand.randint(1, 2)
     kernel = np.ones((k_size, k_size), np.uint8)
     return cv2.dilate(img, kernel, iterations=1)
 
 
 def rand_morphology_erosion(img):
-    k_size = rand.randint(1, 3)
+    k_size = rand.randint(1, 2)
     kernel = np.ones((k_size, k_size), np.uint8)
     return cv2.erode(img, kernel, iterations=1)
 
@@ -284,7 +284,7 @@ def get_augmentations():
 
 
 def get_augmentations_letters():
-    return [rand_scale, rand_blur, rand_shift,
+    return [rand_scale, rand_blur,  # rand_shift,
             rand_morphology_dilate,
             rand_morphology_erosion]
 
