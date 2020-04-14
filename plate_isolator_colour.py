@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import cv2
 import numpy as np
@@ -49,7 +49,7 @@ class PlateIsolatorColour:
                 cv2.imshow("image", img)
                 cv2.waitKey(duration)
             return None, None
-        
+
         parking_corners, license_corners = self.get_plate_corners(hsb, car_mask, car_colour)
         if (parking_corners is None or license_corners is None):
             if self.testing:
@@ -66,10 +66,10 @@ class PlateIsolatorColour:
             cv2.imshow("license", license)
             cv2.waitKey(duration)
             # print("success")
-        
+
         return parking, license
 
-    def get_car_mask(self, img, duration=1000):
+    def get_car_mask(self, img, duration=3000):
         bound_num = 0
 
         mask = [None, None, None]
@@ -95,7 +95,7 @@ class PlateIsolatorColour:
             #     output = cv2.bitwise_and(img, img, mask=mask[bound_num])
             #     cv2.imshow(title, np.hstack([img, output]))
             #     cv2.waitKey(duration)
-            
+
             bound_num += 1
         # Get the mask that had the largest contour (largest car), and
         # the contour of said car
@@ -105,9 +105,12 @@ class PlateIsolatorColour:
             return None, None
         car_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
         cv2.drawContours(car_mask, [car_contour], -1, (255), -1)
-        # if self.testing:
-        #     cv2.imshow("image", img)
-        #     cv2.imshow("car mask", car_mask)
+
+        if self.testing:
+            cv2.imshow("image", img)
+            cv2.imshow("car mask", car_mask)
+            cv2.waitKey(duration)
+
         return car_mask, used_mask
 
     def get_plate_corners(self, img, mask, colour):
@@ -118,7 +121,7 @@ class PlateIsolatorColour:
         @param mask - the mask of the car
         @param colour - the colour of the car (that will also be part of
                         contour and thus should be filtered)
-        
+
         Reference: https://stackoverflow.com/questions/44127342/detect-card-minarea-quadrilateral-from-contour-opencv
         """
         # 1. Get mask of ONLY the plates
@@ -129,6 +132,9 @@ class PlateIsolatorColour:
         colour_mask = cv2.inRange(img, lower, upper)
         colour_mask = cv2.bitwise_not(colour_mask)
         plate_mask = cv2.bitwise_and(colour_mask, colour_mask, mask=mask)
+        if (self.testing):
+            cv2.imshow("colour_mask", colour_mask)
+            cv2.waitKey(2000)
 
         # 2. Use mask to get contours
         plate_mask = cv2.GaussianBlur(plate_mask, (5, 5), 1)  # regularise
@@ -160,17 +166,17 @@ class PlateIsolatorColour:
             print("length not 4!")
             return None, None
 
-        # if self.testing:
-            # parking_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-            # cv2.drawContours(parking_mask, [parking_poly], -1, (255))
-            # license_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-            # cv2.drawContours(license_mask, [license_poly], -1, (255))
+        if self.testing:
+            parking_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+            cv2.drawContours(parking_mask, [parking_poly], -1, (255))
+            license_mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+            cv2.drawContours(license_mask, [license_poly], -1, (255))
 
-            # cv2.imshow("parking_mask", parking_mask)
-            # cv2.imshow("license_mask", license_mask)
-            # # cv2.imshow("img", img)
-            # # cv2.imshow("plate mask", plate_mask)
-            # cv2.waitKey(2000)
+            cv2.imshow("parking_mask", parking_mask)
+            cv2.imshow("license_mask", license_mask)
+            cv2.imshow("img", img)
+            cv2.imshow("plate mask", plate_mask)
+            cv2.waitKey(2000)
 
         return parking_poly[:, 0, :], license_poly[:, 0, :]
 

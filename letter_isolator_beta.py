@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import cv2
 import numpy as np
@@ -37,9 +37,10 @@ class LetterIsolatorBeta:
         license_bin = self.binarise_plate(license)
         self.display_test(parking_bin)
         self.display_test(license_bin)
-        p, spot_num = self.get_chars_from_plate_hardcode(parking_bin, 2)
+        p, p_n0, p_n1 = self.get_chars_from_plate_hardcode(parking_bin, 3)
         self.display_test(p)
-        self.display_test(spot_num)
+        self.display_test(p_n0)
+        self.display_test(p_n1)
         self.display_test(license_bin)
         c0, c1, n0, n1 = self.get_chars_from_plate_hardcode(license_bin, 4)
 
@@ -47,7 +48,7 @@ class LetterIsolatorBeta:
         self.display_test(c1)
         self.display_test(n0)
         self.display_test(n1)
-        return p, spot_num, c0, c1, n0, n1
+        return p, p_n0, p_n1, c0, c1, n0, n1
 
 
 # -------------------- Helpers -----------------------------
@@ -63,7 +64,7 @@ class LetterIsolatorBeta:
                             cv2.THRESH_BINARY)[1]
         return cv2.morphologyEx(img, cv2.MORPH_OPEN, (6, 6))
 
-    def display_test(self, img, duration=500):
+    def display_test(self, img, duration=3000):
         if (self.is_testing):
             cv2.imshow("testing", img)
             cv2.waitKey(duration)
@@ -142,22 +143,27 @@ class LetterIsolatorBeta:
         h = img.shape[0]
         y_top = h // 5
         y_bottom = 4 * h // 5
-        if (expected_letters == 2):
-            plate = self._scale_and_blur(img[y_top: y_bottom, 5 * w // 16: w // 2])
-            license = self._scale_and_blur(img[y_top: y_bottom,
-                                           w // 2: 11 * w // 16])
-            return plate, license
+        if (expected_letters == 3):
+            plate = self._scale_and_blur(img[y_top: y_bottom,
+                                             1 * w // 5: 3 * w // 7])
+            n0 = self._scale_and_blur(img[y_top: y_bottom,
+                                          3 * w // 7: 17 * w // 28])
+            n1 = self._scale_and_blur(img[y_top: y_bottom,
+                                      17 * w // 28:4 * w // 5])
+            return plate, n0, n1
         elif(expected_letters == 4):
             x_offset_outer = int(w * 0.35 / 5)
-            x_offset_inner = int(w * 1.3 / 5)
+            x_offset_inner_left = int(w * 1.55 / 5)
+            x_offset_inner_right = int(w * 1.35 / 5)
             c0 = self._scale_and_blur(img[y_top:y_bottom,
-                                          x_offset_outer:x_offset_inner])
+                                          x_offset_outer:x_offset_inner_left])
             c1 = self._scale_and_blur(img[y_top:y_bottom,
-                                          x_offset_inner: w // 2])
+                                          x_offset_inner_left: w // 2])
             n0 = self._scale_and_blur(img[y_top:y_bottom,
-                                      w // 2: w - x_offset_inner])
+                                      w // 2: w - x_offset_inner_right])
             n1 = self._scale_and_blur(img[y_top:y_bottom,
-                                      w - x_offset_inner: w - x_offset_outer])
+                                      w - x_offset_inner_right:
+                                      w - x_offset_outer])
             return c0, c1, n0, n1
         else:
             raise ValueError("Expected number of letters must be 2 or 4")
